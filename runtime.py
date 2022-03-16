@@ -546,14 +546,18 @@ class StageRuntime:
             self.loss = 1
 
     def run_backward(self):
-        if self.is_criterion:
-            for module in self.modules_with_dependencies.modules()[:-1]:
-                if not isinstance(module, torch.nn.parallel.DistributedDataParallel):
-                    module.pre_backward()
-        else:
-            for module in self.modules_with_dependencies.modules():
-                if not isinstance(module, torch.nn.parallel.DistributedDataParallel):
-                    module.pre_backward()
+        # if self.is_criterion:
+        #     for module in self.modules_with_dependencies.modules()[:-1]:
+        #         if not isinstance(module, torch.nn.parallel.DistributedDataParallel):
+        #             module.pre_backward()
+        #         else:
+        #             module.module.pre_backward()
+        # else:
+        #     for module in self.modules_with_dependencies.modules():
+        #         if not isinstance(module, torch.nn.parallel.DistributedDataParallel):
+        #             module.pre_backward()
+        #         else:
+        #             module.module.pre_backward()
         # Receive input gradients needed for backward pass.
         self.receive_tensors_backward()
         # Backward pass through modules in reverse order.
@@ -609,6 +613,9 @@ class StageRuntime:
 
         if "loss" in outputs:
             outputs["loss"] *= self.loss_scale
+
+        # for output_name in outputs:
+        #     outputs[output_name].register_hook(lambda x: x)
 
         # Perform backward pass.
         torch.autograd.backward(tuple([outputs[output_name] for output_name in outputs]),

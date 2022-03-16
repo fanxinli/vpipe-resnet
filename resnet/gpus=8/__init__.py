@@ -7,8 +7,8 @@ def arch():
     return "resnet50"
 
 def model(criterion):
-    partition = [5, 5, 7]
-    recompute_ratio = [1, 0.8, 0.6]
+    partition = [3, 3, 3, 3, 3, 2]
+    recompute_ratio = [1, 1, 1, 1, 1, 0]
     _declares = get_declares()
     _calculations = get_caculations()
     module = Module(_declares, _calculations)

@@ -113,7 +113,7 @@ class Stage(torch.nn.Module):
                 else:
                     no_cp_return.append(output)
 
-            no_cp_.append("cp_out = pipe_cp.checkpoint(self.cp_forward, self.ctxs, {})".format(', '.join(cp_inputs)))
+            no_cp_.append("cp_out = cp.checkpoint(self.cp_forward, {})".format(', '.join(cp_inputs)))
             no_cp_.append("self.out = ({},)".format(', '.join(no_cp_return)))
             cp_ = ["{} = args[{}]".format(name, i) for i, name in enumerate(cp_inputs)] + cp_
             cp_.append("self.cp_out = ({},)".format(', '.join(cp_return)))
