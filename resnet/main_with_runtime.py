@@ -275,7 +275,7 @@ def main():
     val_sampler = None
     if configuration_maps['stage_to_rank_map'] is not None:
         num_ranks_in_first_stage = len(configuration_maps['stage_to_rank_map'][0])
-        if num_ranks_in_first_stage > 1:
+        if num_ranks_in_first_stage > 1 and args.rank < num_ranks_in_first_stage:
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                 train_dataset, num_replicas=num_ranks_in_first_stage,
                 rank=args.rank)
@@ -570,7 +570,7 @@ def accuracy(output, target, topk=(1,)):
 
         res = []
         for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
