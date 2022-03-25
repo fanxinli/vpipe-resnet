@@ -41,7 +41,7 @@ parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=256, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
-parser.add_argument('--eval-batch-size', default=100, type=int,
+parser.add_argument('--eval-batch-size', default=32, type=int,
                     help='eval mini-batch size (default: 100)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
@@ -263,6 +263,9 @@ def main():
         if args.synthetic_data:
             train_dataset = SyntheticDataset((3, 224, 224), len(train_dataset))
 
+    # for debug
+    train_dataset, _ = torch.utils.data.random_split(train_dataset, [int(0.1 * len(train_dataset)), len(train_dataset)- int(0.1 * len(train_dataset))])
+
     val_dataset = datasets.ImageFolder(valdir, transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
@@ -283,14 +286,30 @@ def main():
                 val_dataset, num_replicas=num_ranks_in_first_stage,
                 rank=args.rank)
             distributed_sampler = True
+            train_loader = torch.utils.data.DataLoader(
+                train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+                num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
 
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
+            val_loader = torch.utils.data.DataLoader(
+                val_dataset, batch_size=args.eval_batch_size, shuffle=False,
+                num_workers=args.workers, pin_memory=True, sampler=val_sampler, drop_last=True)
 
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=args.eval_batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, sampler=val_sampler, drop_last=True)
+        else:
+            train_loader = torch.utils.data.DataLoader(
+                train_dataset, batch_size=args.batch_size * num_ranks_in_first_stage, shuffle=(train_sampler is None),
+                num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
+
+            val_loader = torch.utils.data.DataLoader(
+                val_dataset, batch_size=args.eval_batch_size * num_ranks_in_first_stage, shuffle=False,
+                num_workers=args.workers, pin_memory=True, sampler=val_sampler, drop_last=True)
+    else:
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True)
+
+        val_loader = torch.utils.data.DataLoader(
+            val_dataset, batch_size=args.eval_batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True, sampler=val_sampler, drop_last=True)
 
     # if checkpoint is loaded, start by running validation
     if args.resume:
@@ -307,14 +326,15 @@ def main():
         else:
             train(train_loader, r, optimizer, epoch)
 
+            torch.cuda.empty_cache()
             # evaluate on validation set
-            prec1 = validate(val_loader, r, epoch)
-            if r.stage != r.num_stages: prec1 = 0
+            # prec1 = validate(val_loader, r, epoch)
+            #if r.stage != r.num_stages: prec1 = 0
 
             # remember best prec@1 and save checkpoint
-            best_prec1 = max(prec1, best_prec1)
+            best_prec1 = 0 # max(prec1, best_prec1)
 
-            should_save_checkpoint = args.checkpoint_dir_not_nfs or r.rank_in_stage == 0
+            should_save_checkpoint = True #args.checkpoint_dir_not_nfs or r.rank_in_stage == 0
             if args.checkpoint_dir and should_save_checkpoint:
                 save_checkpoint({
                     'epoch': epoch + 1,
