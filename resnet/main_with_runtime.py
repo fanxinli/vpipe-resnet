@@ -54,9 +54,9 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 
-feature_parser.add_argument('--weight-stash', dest='weight-stash', action='store_true')
-feature_parser.add_argument('--no-weight-stash', dest='weight-stash', action='store_false')
-parser.set_defaults(weight_stash=True)
+#parser.add_argument('--weight-stash', def, action='store_true')
+parser.add_argument('--no-weight-stash', dest='weight_stash', default=True, action='store_false')
+#parser.set_defaults(weight_stash=True)
 
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
@@ -226,7 +226,9 @@ def main():
                 .format(checkpoint_file_path, checkpoint['epoch']))
 
 
-    if arg.weight_stash:
+    if args.weight_stash:
+        print("Use SGD with weight stashing")
+
         optimizer = sgd.SGDWithWeightStashing(r.modules(), r.master_parameters,
                                             r.model_parameters, args.loss_scale,
                                             num_versions=num_versions,
@@ -236,6 +238,7 @@ def main():
                                             verbose_freq=args.verbose_frequency,
                                             macrobatch=args.macrobatch)
     else:
+        print("Use default SGD")
         optimizer = torch.optim.SGD(r.master_parameters, lr=args.lr, momentum=args.momentum,
                                             weight_decay=args.weight_decay)
 
