@@ -8,7 +8,7 @@ def arch():
 
 def model(criterion):
     partition = [3, 3, 3, 3, 3, 2]
-    recompute_ratio = [1, 1, 1, 1, 1, 1]
+    recompute_ratio = [0, 0, 0, 0, 0, 0]
     _declares = get_declares()
     _calculations = get_caculations()
     module = Module(_declares, _calculations)

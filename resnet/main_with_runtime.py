@@ -53,6 +53,11 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
+
+feature_parser.add_argument('--weight-stash', dest='weight-stash', action='store_true')
+feature_parser.add_argument('--no-weight-stash', dest='weight-stash', action='store_false')
+parser.set_defaults(weight_stash=True)
+
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--fp16', action='store_true',
@@ -220,14 +225,19 @@ def main():
         print("=> loaded checkpoint '{}' (epoch {})"
                 .format(checkpoint_file_path, checkpoint['epoch']))
 
-    optimizer = sgd.SGDWithWeightStashing(r.modules(), r.master_parameters,
-                                          r.model_parameters, args.loss_scale,
-                                          num_versions=num_versions,
-                                          lr=args.lr,
-                                          momentum=args.momentum,
-                                          weight_decay=args.weight_decay,
-                                          verbose_freq=args.verbose_frequency,
-                                          macrobatch=args.macrobatch)
+
+    if arg.weight_stash:
+        optimizer = sgd.SGDWithWeightStashing(r.modules(), r.master_parameters,
+                                            r.model_parameters, args.loss_scale,
+                                            num_versions=num_versions,
+                                            lr=args.lr,
+                                            momentum=args.momentum,
+                                            weight_decay=args.weight_decay,
+                                            verbose_freq=args.verbose_frequency,
+                                            macrobatch=args.macrobatch)
+    else:
+        optimizer = torch.optim.SGD(r.master_parameters, lr=args.lr, momentum=args.momentum,
+                                            weight_decay=args.weight_decay)
 
     if args.resume:
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -264,7 +274,7 @@ def main():
             train_dataset = SyntheticDataset((3, 224, 224), len(train_dataset))
 
     # for debug
-    train_dataset, _ = torch.utils.data.random_split(train_dataset, [int(0.1 * len(train_dataset)), len(train_dataset)- int(0.1 * len(train_dataset))])
+    # train_dataset, _ = torch.utils.data.random_split(train_dataset, [int(0.1 * len(train_dataset)), len(train_dataset)- int(0.1 * len(train_dataset))])
 
     val_dataset = datasets.ImageFolder(valdir, transforms.Compose([
         transforms.Resize(256),
@@ -422,17 +432,21 @@ def train(train_loader, r, optimizer, epoch):
             r.zero_grad()
         else:
             optimizer.zero_grad()
-        optimizer.load_old_params()
+        if args.weight_stash:
+            optimizer.load_old_params()
         r.run_backward()
-        optimizer.load_new_params()
+        if args.weight_stash:
+            optimizer.load_new_params()
         optimizer.step()
 
     # finish remaining backward passes
     for i in range(num_warmup_minibatches):
         optimizer.zero_grad()
-        optimizer.load_old_params()
+        if args.weight_stash:
+            optimizer.load_old_params()
         r.run_backward()
-        optimizer.load_new_params()
+        if args.weight_stash:
+            optimizer.load_new_params()
         optimizer.step()
 
     # wait for all helper threads to complete
