@@ -1,17 +1,43 @@
 import time
-import nvidia_smi
+import pynvml as nvidia_smi
 import sys
 nvidia_smi.nvmlInit()
 
 handles = []
-for i in range(4):
+
+deviceCount = nvidia_smi.nvmlDeviceGetCount()
+for i in range(deviceCount):
+    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(i)
+    print("GPU", i, ":", nvidia_smi.nvmlDeviceGetName(handle))
+
+for i in range(deviceCount):
     handles.append(nvidia_smi.nvmlDeviceGetHandleByIndex(i))
 
 with open(sys.argv[1], 'w') as f:
-    while True:
+    for c in range(int(sys.argv[2])):
         usage = []
+        mem = []
         for handle in handles:
             res = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
+            mem_info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+
             usage.append(res.gpu)
-        f.write("%.2f %.2f %.2f %.2f\n" % (usage[0], usage[1], usage[2], usage[3]))
-        time.sleep(0.1)
+            mem.append(mem_info.used)
+        usage_str = ""
+        mem_str = ""
+
+        usage_str = ' '.join(["%.3f"%s for s in usage])
+        mem_str = ' '.join(["%.3f"%s for s in mem])
+
+        usage_output = "Usage [%.2f]: "%time.time()+usage_str
+        mem_output = "Mem   [%.2f]: "%time.time() +mem_str
+
+        print(usage_output)
+        f.write(usage_output+"\n")
+
+        print(mem_output)
+        f.write(mem_output+"\n")
+
+        time.sleep(float(sys.argv[3]))
+
+nvidia_smi.nvmlShutdown()

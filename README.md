@@ -4,9 +4,12 @@
 
 1. Preprocess the ImageNet dataset and save it to `data`.
 
+## Documents
+
+Parameters see PARAMETER.md.
+How to profile GPU usage/memory see PROFILE.md.
+
 ## Train
-
-
 
 ### Run on a host
 
